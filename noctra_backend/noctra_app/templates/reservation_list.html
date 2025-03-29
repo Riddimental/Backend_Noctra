@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reservations</title>
+</head>
+<body>
+    <h1>Booking List</h1>
+    <ul>
+        {% for reservation in reservations %}
+            <li>{{ reservation.user }} - {{ reservation.event }} - {{ reservation.club }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
