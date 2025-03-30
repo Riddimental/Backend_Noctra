@@ -1,25 +1,29 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load secret key from environment variable
+load_dotenv()  # Load environment variables from a .env file
+
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'fallback-secret-key')
 
 # Media files
-MEDIA_URL = '/media/'  # This will be the URL through which media files are accessible
-MEDIA_ROOT = os.path.join(BASE_DIR, 'public')  # This is where the media files will be stored
+MEDIA_URL = '/media/'  # The URL prefix for accessing media files
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # The absolute path to the media folder
 
 # Static files
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # SECURITY WARNING: Don't run with debug turned on in production!
-DEBUG = True  # Set to False in production
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+
 
 # Define allowed hosts
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Installed apps
 INSTALLED_APPS = [
@@ -59,7 +63,7 @@ MIDDLEWARE = [
 ]
 
 # CORS settings (Change this for production)
-CORS_ALLOW_ALL_ORIGINS = True  # Allow all in development
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allows all origins only in development
 # In production, use:
 # CORS_ALLOWED_ORIGINS = ['https://yourfrontend.com']
 
