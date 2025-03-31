@@ -10,7 +10,8 @@ class UserProfile(models.Model):
     cover_pic_url = models.URLField(max_length=500, null=True, blank=True, default='/media/images/cover_pictures/coverpic2.jpeg')
     date_of_birth = models.DateField(null=True, blank=True)
     is_vip = models.BooleanField(default=False)
-    id_verification_url = models.URLField(max_length=500, null=True, blank=True)
+    bio = models.TextField(max_length=255, null=True, blank=True)
+    #id_verification_url = models.URLField(max_length=500, null=True, blank=True)
     role = models.CharField(
         max_length=20, 
         choices=[('customer', 'Customer'), ('club_admin', 'Club Admin'), ('club_owner', 'Club Owner'), ('super_admin', 'Super Admin')], 
