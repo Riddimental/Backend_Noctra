@@ -6,7 +6,7 @@ import uuid
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    profile_pic_url = models.URLField(max_length=500, null=True, blank=True, default='/media/images/profile_pictures/pfpic1.jpeg')
+    profile_pic_url = models.URLField(max_length=500, null=True, blank=True, default='/media/images/profile_pictures/pfpic4.jpeg')
     cover_pic_url = models.URLField(max_length=500, null=True, blank=True, default='/media/images/cover_pictures/coverpic2.jpeg')
     date_of_birth = models.DateField(null=True, blank=True)
     is_vip = models.BooleanField(default=False)
