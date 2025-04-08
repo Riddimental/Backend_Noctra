@@ -1,28 +1,44 @@
 from rest_framework import serializers
 from .models import *
+import base64
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    date_of_birth = serializers.DateField(write_only=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password']
+        fields = ['username', 'email', 'password', 'date_of_birth']
 
     def create(self, validated_data):
+        dob = validated_data.pop('date_of_birth')
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password']
         )
+        user_profile = user.userprofile  # Created via signal
+        user_profile.date_of_birth = dob
+        user_profile.save()
         return user
 
+    def update(self, instance, validated_data):
+        instance.username = validated_data.get('username', instance.username)
+        instance.email = validated_data.get('email', instance.email)
+        instance.save()
+        return instance
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        return value
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
-    # Add the username field
-    username = serializers.CharField(source='user.username', read_only=True)
+    username = serializers.CharField()
 
     class Meta:
         model = UserProfile
-        fields = '__all__'  # This will include all fields from the UserProfile model, including the custom username
+        fields = '__all__'
 
 class ClubSerializer(serializers.ModelSerializer):
     class Meta:

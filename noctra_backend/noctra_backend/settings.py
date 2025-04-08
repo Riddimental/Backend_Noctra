@@ -11,7 +11,7 @@ load_dotenv()  # Load environment variables from a .env file
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'fallback-secret-key')
 
 # Media files
-MEDIA_URL = '/api/media/'  # The URL prefix for accessing media files
+MEDIA_URL = '/media/'  # The URL prefix for accessing media files
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # The absolute path to the media folder
 
 # Static files

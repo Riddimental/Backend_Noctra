@@ -4,14 +4,22 @@ from django.db import models
 from django.contrib.auth.models import User  # Import the default User model
 import uuid
 
+def upload_profile_pic(instance, filename):
+    return f'images/profile_pictures/{instance.user.username}/{filename}'
+
+def upload_cover_pic(instance, filename):
+    return f'images/cover_pictures/{instance.user.username}/{filename}'
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    profile_pic_url = models.URLField(max_length=500, null=True, blank=True, default='/media/images/profile_pictures/pfpic4.jpeg')
-    cover_pic_url = models.URLField(max_length=500, null=True, blank=True, default='/media/images/cover_pictures/coverpic2.jpeg')
+    profile_pic = models.ImageField(upload_to=upload_profile_pic, null=True, blank=True, default='images/profile_pictures/default_profile.jpg')
+    cover_pic = models.ImageField(upload_to=upload_cover_pic, null=True, blank=True, default='images/cover_pictures/default_cover.jpg')
+    playlist = models.URLField(max_length=500, null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     is_vip = models.BooleanField(default=False)
     bio = models.TextField(max_length=255, null=True, blank=True)
-    #id_verification_url = models.URLField(max_length=500, null=True, blank=True)
+    publicProfile = models.BooleanField(default=True)
+    anonymous = models.BooleanField(default=False)
     role = models.CharField(
         max_length=20, 
         choices=[('customer', 'Customer'), ('club_admin', 'Club Admin'), ('club_owner', 'Club Owner'), ('super_admin', 'Super Admin')], 
@@ -23,28 +31,28 @@ class UserProfile(models.Model):
 
     @property
     def age(self):
+        from datetime import date
         if self.date_of_birth:
             today = date.today()
             return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
         return None
-    
+
     @property
     def username(self):
-        """Returns the associated user's username."""
         return self.user.username
-
+    
     def get_profile_pic_url(self):
-        return self.profile_pic_url or '/media/public/default_profile.jpg'
+        return self.profile_pic.url if self.profile_pic else '/media/public/default_profile.jpg'
 
     def get_cover_pic_url(self):
-        return self.cover_pic_url or '/media/public/default_cover.jpg'
+        return self.cover_pic.url if self.cover_pic else '/media/public/default_cover.jpg'
+
 
     def get_role_display_name(self):
         return dict(self._meta.get_field('role').choices).get(self.role)
 
     def __str__(self):
         return f"{self.user.username} ({self.get_role_display_name()})"
-
 
 
 
