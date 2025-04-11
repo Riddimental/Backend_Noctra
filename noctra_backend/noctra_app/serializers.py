@@ -17,7 +17,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password']
         )
-        user_profile = user.userprofile  # Created via signal
+        user_profile = user.profile  # Created via signal
         user_profile.date_of_birth = dob
         user_profile.save()
         return user
@@ -65,10 +65,41 @@ class FeedSerializer(serializers.ModelSerializer):
         model = Feed
         fields = '__all__'
 
+class PostMediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostMedia
+        fields = ['file', 'file_type']
+
 class PostSerializer(serializers.ModelSerializer):
+    media = PostMediaSerializer(many=True)  # This will allow multiple media for one post
+    
     class Meta:
         model = Post
-        fields = '__all__'
+        fields = ['owner', 'caption', 'tags', 'is_public', 'media']
+    
+    def create(self, validated_data):
+        media_data = validated_data.pop('media', [])
+        post = Post.objects.create(**validated_data)
+        
+        for media in media_data:
+            PostMedia.objects.create(post=post, **media)
+        
+        return post
+
+    def update(self, instance, validated_data):
+        media_data = validated_data.pop('media', [])
+        
+        instance.caption = validated_data.get('caption', instance.caption)
+        instance.tags.set(validated_data.get('tags', instance.tags.all()))
+        instance.is_public = validated_data.get('is_public', instance.is_public)
+        instance.save()
+
+        # Handle media updates (if any)
+        for media in media_data:
+            PostMedia.objects.create(post=instance, **media)
+        
+        return instance
+
 
 class FollowSerializer(serializers.ModelSerializer):
     class Meta:

@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.authtoken.models import Token
 from .models import *
 from .serializers import *
@@ -48,7 +48,6 @@ def register(request):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class ClubViewSet(viewsets.ModelViewSet):
     queryset = Club.objects.all()
     serializer_class = ClubSerializer
@@ -84,6 +83,48 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        """
+        Override this method to handle file uploads and associate them with the Post instance.
+        """
+        # Save the post first
+        post = serializer.save(owner=self.request.user)
+        
+        # Handle media files separately if needed
+        media_files = self.request.FILES.getlist('media')  # This will be the list of files uploaded
+        
+        for media in media_files:
+            file_type = self.get_file_type(media.name)
+            PostMedia.objects.create(post=post, file=media, file_type=file_type)
+
+    def perform_update(self, serializer):
+        """
+        Override this method to handle file uploads during updates.
+        """
+        # Save the post
+        post = serializer.save()
+        
+        # Handle media files separately if needed
+        media_files = self.request.FILES.getlist('media')
+        
+        for media in media_files:
+            file_type = self.get_file_type(media.name)
+            PostMedia.objects.create(post=post, file=media, file_type=file_type)
+
+    def get_file_type(self, filename):
+        """
+        Utility method to determine the file type based on the file extension.
+        """
+        ext = filename.split('.')[-1].lower()
+        if ext in ['jpg', 'jpeg', 'png', 'gif']:
+            return 'image'
+        elif ext in ['mp4', 'mov', 'avi']:
+            return 'video'
+        elif ext in ['mp3', 'wav']:
+            return 'audio'
+        else:
+            return 'other'
 
 class FollowViewSet(viewsets.ModelViewSet):
     queryset = Follow.objects.all()
