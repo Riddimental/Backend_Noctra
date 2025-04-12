@@ -172,6 +172,16 @@ curl -X POST \
   -F "media=@/path/to/file.jpg"
 ```
 
+## Frontend
+
+The frontend for Noctra is built with **Next.js** and is available in a separate repository. It provides the user interface for registration, login, posting, media handling, and profile management.
+
+**Repository**: [Frontend_Noctra](https://github.com/Riddimental/Frontend_Noctra.git)
+
+Make sure to clone and run the frontend alongside the backend to experience the full functionality of the Noctra platform. Refer to the frontend repository’s README for setup instructions.
+
+---
+
 ## Licenses
 
 This project is licensed under the [Proprietary License](LICENSE) - all rights reserved. This project is an independent work and is not affiliated with any institution.
