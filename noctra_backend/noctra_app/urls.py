@@ -11,7 +11,7 @@ router.register(r'clubprofiles', ClubProfileViewSet)
 router.register(r'clubadmins', ClubAdminViewSet)
 router.register(r'events', EventViewSet)
 router.register(r'feeds', FeedViewSet)
-router.register(r'posts', PostViewSet)
+router.register(r'posts', PostViewSet, basename='post')
 router.register(r'follows', FollowViewSet)
 router.register(r'likes', LikeViewSet)
 router.register(r'comments', CommentViewSet)
@@ -21,6 +21,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/register/', register, name='register'),
     path('api/userprofiles/me/', get_user_profile, name='get_user_profile'),
+    path('api/userprofiles/<int:user_id>/', get_user_profile, name='get_user_profile_by_id'),
     path('api/token/', obtain_auth_token, name='api_token_auth'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

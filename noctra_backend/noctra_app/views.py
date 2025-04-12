@@ -1,35 +1,55 @@
+import json
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.authtoken.models import Token
 from .models import *
 from .serializers import *
 
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
-def get_user_profile(request):
+def get_user_profile(request, user_id=None):
+    # If the URL is for /me/, fetch the current user's profile
+    if user_id is None or user_id == request.user.id:
+        try:
+            user_profile = UserProfile.objects.get(user=request.user)
+
+            if request.method == 'GET':
+                # Serialize and return profile data for the authenticated user
+                serializer = UserProfileSerializer(user_profile)
+                profile_data = serializer.data
+                profile_data['profile_pic_url'] = user_profile.get_profile_pic_url()
+                profile_data['cover_pic_url'] = user_profile.get_cover_pic_url()
+                profile_data['role_display_name'] = user_profile.get_role_display_name()
+                return Response(profile_data)
+
+            elif request.method == 'PATCH':
+                # Handle profile update (PATCH request)
+                serializer = UserProfileSerializer(user_profile, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except UserProfile.DoesNotExist:
+            return Response({"error": "Profile not found"}, status=404)
+    
+    # If the URL is for a different user profile (e.g. /api/userprofiles/21/)
     try:
-        user_profile = UserProfile.objects.get(user=request.user)
+        user_profile = UserProfile.objects.get(id=user_id)
 
         if request.method == 'GET':
-            # Serialize and return profile data
-            serializer = UserProfileSerializer(user_profile)
-            profile_data = serializer.data
-            profile_data['profile_pic_url'] = user_profile.get_profile_pic_url()
-            profile_data['cover_pic_url'] = user_profile.get_cover_pic_url()
-            profile_data['role_display_name'] = user_profile.get_role_display_name()
+            # Only return username and profile picture for other users
+            profile_data = {
+                'username': user_profile.user.username,
+                'profile_pic_url': user_profile.get_profile_pic_url(),
+            }
             return Response(profile_data)
-
-        elif request.method == 'PATCH':
-            # Handle profile update (PATCH request)
-            serializer = UserProfileSerializer(user_profile, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        
     except UserProfile.DoesNotExist:
         return Response({"error": "Profile not found"}, status=404)
 
@@ -47,7 +67,6 @@ def register(request):
                 'username': user.username
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ClubViewSet(viewsets.ModelViewSet):
     queryset = Club.objects.all()
@@ -84,6 +103,85 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def perform_create(self, serializer):
+        is_public = self.request.data.get('is_public', True)
+        original_post_data = self.request.data.get('original_post', None)
+
+        # Ensure original_post is passed as primary key or ID
+        original_post = None
+        if original_post_data:
+            try:
+                original_post = Post.objects.get(id=original_post_data)
+            except Post.DoesNotExist:
+                raise serializers.ValidationError({"original_post": "Invalid original post ID."})
+
+        post = serializer.save(owner=self.request.user, is_public=is_public, original_post=original_post)
+
+        # Handle tags if provided
+        self.handle_tags(post)
+
+        # Optionally handle media upload separately if needed
+        self.handle_media_upload(post)
+        
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id', None)
+        if user_id:
+            return Post.objects.filter(owner_id=user_id).order_by('-created_at')
+        return Post.objects.filter(owner=self.request.user).order_by('-created_at')
+
+    @action(detail=False, methods=['get'], url_path='user/(?P<user_id>\d+)')
+    def user_posts(self, request, user_id=None):
+        # This action will be used for fetching posts of a specific user
+        posts = Post.objects.filter(owner_id=user_id).order_by('-created_at')
+        page = self.paginate_queryset(posts)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(posts, many=True)
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        post = serializer.save()
+
+        # Handle tags if provided
+        self.handle_tags(post)
+
+        # Optionally handle media upload separately if needed
+        self.handle_media_upload(post)
+
+    def handle_tags(self, post):
+        # Ensure tags are passed as a stringified JSON in FormData
+        tags_data = self.request.data.get('tags', None)
+
+        if tags_data:
+            try:
+                tags = json.loads(tags_data)  # Convert the string to a list of dictionaries
+                for tag_data in tags:
+                    tag, created = Tag.objects.get_or_create(name=tag_data['name'])
+                    post.tags.add(tag)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError({"tags": "Invalid tags format."})
+
+    def handle_media_upload(self, post):
+        # Handle media files from FormData
+        media_files = self.request.FILES.getlist('media')
+        if media_files:
+            for media in media_files:
+                file_type = self.get_file_type(media.name)
+                PostMedia.objects.create(post=post, file=media, file_type=file_type)
+
+    def get_file_type(self, filename):
+        ext = filename.split('.')[-1].lower()
+        if ext in ['jpg', 'jpeg', 'png', 'gif']:
+            return 'image'
+        elif ext in ['mp4', 'mov', 'avi']:
+            return 'video'
+        elif ext in ['mp3', 'wav']:
+            return 'audio'
+        else:
+            return 'other'
 
 class FollowViewSet(viewsets.ModelViewSet):
     queryset = Follow.objects.all()
