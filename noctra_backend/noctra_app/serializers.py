@@ -104,7 +104,7 @@ class PostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ['id', 'caption', 'tags', 'is_public', 'media', 'original_post']
+        fields = '__all__'
 
     def create(self, validated_data):
         is_public = validated_data.pop('is_public', None)

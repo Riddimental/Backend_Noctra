@@ -11,27 +11,44 @@ from .serializers import *
 
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
-def get_user_profile(request):
+def get_user_profile(request, user_id=None):
+    # If the URL is for /me/, fetch the current user's profile
+    if user_id is None or user_id == request.user.id:
+        try:
+            user_profile = UserProfile.objects.get(user=request.user)
+
+            if request.method == 'GET':
+                # Serialize and return profile data for the authenticated user
+                serializer = UserProfileSerializer(user_profile)
+                profile_data = serializer.data
+                profile_data['profile_pic_url'] = user_profile.get_profile_pic_url()
+                profile_data['cover_pic_url'] = user_profile.get_cover_pic_url()
+                profile_data['role_display_name'] = user_profile.get_role_display_name()
+                return Response(profile_data)
+
+            elif request.method == 'PATCH':
+                # Handle profile update (PATCH request)
+                serializer = UserProfileSerializer(user_profile, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except UserProfile.DoesNotExist:
+            return Response({"error": "Profile not found"}, status=404)
+    
+    # If the URL is for a different user profile (e.g. /api/userprofiles/21/)
     try:
-        user_profile = UserProfile.objects.get(user=request.user)
+        user_profile = UserProfile.objects.get(id=user_id)
 
         if request.method == 'GET':
-            # Serialize and return profile data
-            serializer = UserProfileSerializer(user_profile)
-            profile_data = serializer.data
-            profile_data['profile_pic_url'] = user_profile.get_profile_pic_url()
-            profile_data['cover_pic_url'] = user_profile.get_cover_pic_url()
-            profile_data['role_display_name'] = user_profile.get_role_display_name()
+            # Only return username and profile picture for other users
+            profile_data = {
+                'username': user_profile.user.username,
+                'profile_pic_url': user_profile.get_profile_pic_url(),
+            }
             return Response(profile_data)
-
-        elif request.method == 'PATCH':
-            # Handle profile update (PATCH request)
-            serializer = UserProfileSerializer(user_profile, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        
     except UserProfile.DoesNotExist:
         return Response({"error": "Profile not found"}, status=404)
 
