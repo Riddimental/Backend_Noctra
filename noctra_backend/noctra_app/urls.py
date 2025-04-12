@@ -22,8 +22,6 @@ urlpatterns = [
     path('api/register/', register, name='register'),
     path('api/userprofiles/me/', get_user_profile, name='get_user_profile'),
     path('api/userprofiles/<int:user_id>/', get_user_profile, name='get_user_profile_by_id'),
-    path('api/posts/', PostViewSet.as_view({'get': 'list'}), name='post-list'),  # For the current user
-    path('api/posts/user/<int:user_id>/', PostViewSet.as_view({'get': 'list'}), name='user-post-list'),  # For a specific user
     path('api/token/', obtain_auth_token, name='api_token_auth'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

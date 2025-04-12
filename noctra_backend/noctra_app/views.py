@@ -3,6 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.authtoken.models import Token
@@ -125,15 +126,21 @@ class PostViewSet(viewsets.ModelViewSet):
         self.handle_media_upload(post)
         
     def get_queryset(self):
-        # Get the user ID from the URL or the current user
         user_id = self.kwargs.get('user_id', None)
-
-        # If user_id is provided in the URL, fetch that user's posts
         if user_id:
             return Post.objects.filter(owner_id=user_id).order_by('-created_at')
-        
-        # Otherwise, fetch the authenticated user's posts
         return Post.objects.filter(owner=self.request.user).order_by('-created_at')
+
+    @action(detail=False, methods=['get'], url_path='user/(?P<user_id>\d+)')
+    def user_posts(self, request, user_id=None):
+        # This action will be used for fetching posts of a specific user
+        posts = Post.objects.filter(owner_id=user_id).order_by('-created_at')
+        page = self.paginate_queryset(posts)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(posts, many=True)
+        return Response(serializer.data)
 
     def perform_update(self, serializer):
         post = serializer.save()

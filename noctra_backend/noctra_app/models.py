@@ -186,15 +186,19 @@ def post_media_upload_path(instance, filename):
 
 class Post(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="posts")
-    caption = models.TextField(blank=True)
+    caption = models.TextField(blank=False, null=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_public = models.BooleanField(default=True)
     tags = models.ManyToManyField("Tag", related_name='posts', blank=True)
+    mentions = models.ManyToManyField(User, related_name="mentioned_posts", blank=True)
     original_post = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="reposts")
 
     def __str__(self):
         return f"{self.owner.username} - {self.caption} - {self.created_at.strftime('%Y-%m-%d')}"
+
+    def mentioned_usernames(self):
+        return [user.username for user in self.mentions.all()]
 
 
 class PostMedia(models.Model):
@@ -218,6 +222,16 @@ class PostMedia(models.Model):
     def __str__(self):
         return f"Media for Post {self.post.id}"
     
+class Mention(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_mention')
+    mentioned_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mentioned_in_posts')
+    mentioned_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mentioned_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.mentioned_by.username} mentioned {self.mentioned_user.username} in Post {self.post.id}"
+
+
     
 class Tag(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -264,21 +278,13 @@ class SavedPost(models.Model):
 
 
 class Notification(models.Model):
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
-    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
-    notification_type = models.CharField(max_length=20, choices=[
-        ("like", "Like"),
-        ("comment", "Comment"),
-        ("follow", "Follow"),
-        ("repost", "Repost"),
-    ])
-    message = models.TextField(blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    message = models.TextField()
     is_read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return f"Notification for {self.recipient.username}"
+        return f"Notification for {self.user.username}"
 
 
 class Follow(models.Model):
