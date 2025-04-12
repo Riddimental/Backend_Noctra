@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from rest_framework import serializers
 from .models import *
 import base64
@@ -69,36 +70,73 @@ class PostMediaSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostMedia
         fields = ['file', 'file_type']
+        
+class TagListSerializer(serializers.ListSerializer):
+    def to_internal_value(self, data):
+        tag_objects = []
+        errors = []
+
+        for item in data:
+            name = item.get('name', '').lower()
+            if not name:
+                errors.append({'name': ['This field is required.']})
+                continue
+
+            obj, _ = Tag.objects.get_or_create(name=name)
+            tag_objects.append(obj)
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return tag_objects
+
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'name']
+        list_serializer_class = TagListSerializer 
 
 class PostSerializer(serializers.ModelSerializer):
-    media = PostMediaSerializer(many=True)  # This will allow multiple media for one post
-    
+    tags = TagSerializer(many=True, required=False)
+    media = PostMediaSerializer(many=True, required=False)
+    original_post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), required=False)
+
     class Meta:
         model = Post
-        fields = ['owner', 'caption', 'tags', 'is_public', 'media']
-    
+        fields = ['id', 'caption', 'tags', 'is_public', 'media', 'original_post']
+
     def create(self, validated_data):
-        media_data = validated_data.pop('media', [])
-        post = Post.objects.create(**validated_data)
+        is_public = validated_data.pop('is_public', None)
         
-        for media in media_data:
-            PostMedia.objects.create(post=post, **media)
+        if isinstance(is_public, str):
+            is_public = is_public.lower() == 'true'
         
+        post = Post.objects.create(**validated_data, is_public=is_public)
         return post
 
     def update(self, instance, validated_data):
+        tags = validated_data.pop('tags', [])
         media_data = validated_data.pop('media', [])
-        
-        instance.caption = validated_data.get('caption', instance.caption)
-        instance.tags.set(validated_data.get('tags', instance.tags.all()))
-        instance.is_public = validated_data.get('is_public', instance.is_public)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
         instance.save()
 
-        # Handle media updates (if any)
+        if tags:
+            instance.tags.set(tags)
+
         for media in media_data:
             PostMedia.objects.create(post=instance, **media)
-        
+
         return instance
+
+    def get_media(self, obj):
+        return PostMediaSerializer(obj.media.all(), many=True).data  # Serialize media files
+
+    def get_tags(self, obj):
+        return [f"#{tag.name}" for tag in obj.tags.all()]  # Format tags as list of strings
+
 
 
 class FollowSerializer(serializers.ModelSerializer):

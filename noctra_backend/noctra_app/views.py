@@ -1,5 +1,7 @@
+import json
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -83,39 +85,66 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
-    
+    parser_classes = (MultiPartParser, FormParser)
+
     def perform_create(self, serializer):
-        """
-        Override this method to handle file uploads and associate them with the Post instance.
-        """
-        # Save the post first
-        post = serializer.save(owner=self.request.user)
+        is_public = self.request.data.get('is_public', True)
+        original_post_data = self.request.data.get('original_post', None)
+
+        # Ensure original_post is passed as primary key or ID
+        original_post = None
+        if original_post_data:
+            try:
+                original_post = Post.objects.get(id=original_post_data)
+            except Post.DoesNotExist:
+                raise serializers.ValidationError({"original_post": "Invalid original post ID."})
+
+        post = serializer.save(owner=self.request.user, is_public=is_public, original_post=original_post)
+
+        # Handle tags if provided
+        self.handle_tags(post)
+
+        # Optionally handle media upload separately if needed
+        self.handle_media_upload(post)
         
-        # Handle media files separately if needed
-        media_files = self.request.FILES.getlist('media')  # This will be the list of files uploaded
+    def get_queryset(self):
+        # Get the current user
+        user = self.request.user
         
-        for media in media_files:
-            file_type = self.get_file_type(media.name)
-            PostMedia.objects.create(post=post, file=media, file_type=file_type)
+        # Filter the posts based on the user and order them by creation time
+        return Post.objects.filter(owner=user).order_by('-created_at')  # Use '-created_at' for descending order
 
     def perform_update(self, serializer):
-        """
-        Override this method to handle file uploads during updates.
-        """
-        # Save the post
         post = serializer.save()
-        
-        # Handle media files separately if needed
+
+        # Handle tags if provided
+        self.handle_tags(post)
+
+        # Optionally handle media upload separately if needed
+        self.handle_media_upload(post)
+
+    def handle_tags(self, post):
+        # Ensure tags are passed as a stringified JSON in FormData
+        tags_data = self.request.data.get('tags', None)
+
+        if tags_data:
+            try:
+                tags = json.loads(tags_data)  # Convert the string to a list of dictionaries
+                for tag_data in tags:
+                    tag, created = Tag.objects.get_or_create(name=tag_data['name'])
+                    post.tags.add(tag)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError({"tags": "Invalid tags format."})
+
+    def handle_media_upload(self, post):
+        # Handle media files from FormData
         media_files = self.request.FILES.getlist('media')
-        
-        for media in media_files:
-            file_type = self.get_file_type(media.name)
-            PostMedia.objects.create(post=post, file=media, file_type=file_type)
+        if media_files:
+            for media in media_files:
+                file_type = self.get_file_type(media.name)
+                PostMedia.objects.create(post=post, file=media, file_type=file_type)
 
     def get_file_type(self, filename):
-        """
-        Utility method to determine the file type based on the file extension.
-        """
         ext = filename.split('.')[-1].lower()
         if ext in ['jpg', 'jpeg', 'png', 'gif']:
             return 'image'
@@ -125,6 +154,7 @@ class PostViewSet(viewsets.ModelViewSet):
             return 'audio'
         else:
             return 'other'
+
 
 class FollowViewSet(viewsets.ModelViewSet):
     queryset = Follow.objects.all()

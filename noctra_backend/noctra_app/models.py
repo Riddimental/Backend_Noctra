@@ -8,10 +8,11 @@ import os
 
 # Upload paths
 def upload_profile_pic(instance, filename):
-    return f'images/profile_pictures/{instance.user.username}/{filename}'
+    # name the file using f"{uuid.uuid4().hex}.{ext}"
+    return f'images/profile_pictures/{instance.user.username}/{uuid.uuid4().hex}.{filename.split(".")[-1]}'
 
 def upload_cover_pic(instance, filename):
-    return f'images/cover_pictures/{instance.user.username}/{filename}'
+    return f'images/cover_pictures/{instance.user.username}/{uuid.uuid4().hex}.{filename.split(".")[-1]}'
 
 
 class Feed(models.Model):
@@ -166,7 +167,7 @@ class VIPSubscription(models.Model):
 
 def post_media_upload_path(instance, filename):
     ext = filename.split('.')[-1]
-    user = instance.post.author.username
+    user = instance.post.owner.username
     base = 'other'
 
     # Determine media type and folder
@@ -178,8 +179,8 @@ def post_media_upload_path(instance, filename):
         base = f'other/audios/{user}'
     elif ext.lower() in ['pdf', 'docx']:
         base = f'other/documents/{user}'
-
-    filename = f"{os.path.splitext(filename)[0]}_{User.objects.make_random_password(length=8)}.{ext}"
+    # make an organized name for the file
+    filename = f"{uuid.uuid4().hex}.{ext}"
     return os.path.join(base, filename)
 
 
@@ -189,12 +190,11 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_public = models.BooleanField(default=True)
-    tags = models.ManyToManyField("Tag", blank=True)
-    is_ad = models.BooleanField(default=False)
+    tags = models.ManyToManyField("Tag", related_name='posts', blank=True)
     original_post = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="reposts")
 
     def __str__(self):
-        return f"{self.owner.username} - {self.created_at.strftime('%Y-%m-%d')}"
+        return f"{self.owner.username} - {self.caption} - {self.created_at.strftime('%Y-%m-%d')}"
 
 
 class PostMedia(models.Model):
@@ -217,6 +217,17 @@ class PostMedia(models.Model):
 
     def __str__(self):
         return f"Media for Post {self.post.id}"
+    
+    
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return f"#{self.name}"
+    
+    def save(self, *args, **kwargs):
+        self.name = self.name.lower()
+        super().save(*args, **kwargs)
 
 
 class Comment(models.Model):
@@ -250,12 +261,6 @@ class SavedPost(models.Model):
     class Meta:
         unique_together = ("user", "post")
 
-
-class Tag(models.Model):
-    name = models.CharField(max_length=50, unique=True)
-
-    def __str__(self):
-        return f"#{self.name}"
 
 
 class Notification(models.Model):
