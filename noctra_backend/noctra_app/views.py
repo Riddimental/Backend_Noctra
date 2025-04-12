@@ -125,11 +125,15 @@ class PostViewSet(viewsets.ModelViewSet):
         self.handle_media_upload(post)
         
     def get_queryset(self):
-        # Get the current user
-        user = self.request.user
+        # Get the user ID from the URL or the current user
+        user_id = self.kwargs.get('user_id', None)
+
+        # If user_id is provided in the URL, fetch that user's posts
+        if user_id:
+            return Post.objects.filter(owner_id=user_id).order_by('-created_at')
         
-        # Filter the posts based on the user and order them by creation time
-        return Post.objects.filter(owner=user).order_by('-created_at')  # Use '-created_at' for descending order
+        # Otherwise, fetch the authenticated user's posts
+        return Post.objects.filter(owner=self.request.user).order_by('-created_at')
 
     def perform_update(self, serializer):
         post = serializer.save()
@@ -171,7 +175,6 @@ class PostViewSet(viewsets.ModelViewSet):
             return 'audio'
         else:
             return 'other'
-
 
 class FollowViewSet(viewsets.ModelViewSet):
     queryset = Follow.objects.all()
