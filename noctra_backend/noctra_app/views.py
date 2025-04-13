@@ -12,14 +12,13 @@ from .serializers import *
 
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
-def get_user_profile(request, user_id=None):
-    # If the URL is for /me/, fetch the current user's profile
-    if user_id is None or user_id == request.user.id:
+def get_user_profile(request, identifier=None):
+    # Case: /me/ or authenticated user
+    if identifier is None or str(identifier) == str(request.user.id) or str(identifier) == request.user.username:
         try:
             user_profile = UserProfile.objects.get(user=request.user)
 
             if request.method == 'GET':
-                # Serialize and return profile data for the authenticated user
                 serializer = UserProfileSerializer(user_profile)
                 profile_data = serializer.data
                 profile_data['profile_pic_url'] = user_profile.get_profile_pic_url()
@@ -28,7 +27,6 @@ def get_user_profile(request, user_id=None):
                 return Response(profile_data)
 
             elif request.method == 'PATCH':
-                # Handle profile update (PATCH request)
                 serializer = UserProfileSerializer(user_profile, data=request.data, partial=True)
                 if serializer.is_valid():
                     serializer.save()
@@ -37,21 +35,28 @@ def get_user_profile(request, user_id=None):
 
         except UserProfile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
-    
-    # If the URL is for a different user profile (e.g. /api/userprofiles/21/)
-    try:
-        user_profile = UserProfile.objects.get(id=user_id)
 
+    # Case: identifier is either a user ID or username of another user
+    user_profile = None
+
+    # Try to fetch by numeric ID first
+    if str(identifier).isdigit():
+        user_profile = UserProfile.objects.filter(id=identifier).first()
+
+    # If not found by ID, try username
+    if not user_profile:
+        user_profile = UserProfile.objects.filter(user__username=identifier).first()
+
+    if user_profile:
         if request.method == 'GET':
-            # Only return username and profile picture for other users
             profile_data = {
                 'username': user_profile.user.username,
                 'profile_pic_url': user_profile.get_profile_pic_url(),
             }
             return Response(profile_data)
-        
-    except UserProfile.DoesNotExist:
+    else:
         return Response({"error": "Profile not found"}, status=404)
+
 
 
 @api_view(['POST'])
