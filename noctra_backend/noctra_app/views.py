@@ -23,7 +23,8 @@ def get_user_profile(request, identifier=None):
                 profile_data = serializer.data
                 profile_data['profile_pic_url'] = user_profile.get_profile_pic_url()
                 profile_data['cover_pic_url'] = user_profile.get_cover_pic_url()
-                profile_data['role_display_name'] = user_profile.get_role_display_name()
+                profile_data['user_type_display_name'] = user_profile.get_user_type_display_name()
+                profile_data['system_role_display_name'] = user_profile.get_system_role_display_name()
                 return Response(profile_data)
 
             elif request.method == 'PATCH':
@@ -39,9 +40,12 @@ def get_user_profile(request, identifier=None):
     # Case: identifier is either a user ID or username of another user
     user_profile = None
 
-    # Try to fetch by numeric ID first
+    # Try to fetch by numeric user ID first
     if str(identifier).isdigit():
-        user_profile = UserProfile.objects.filter(id=identifier).first()
+        user = User.objects.filter(id=identifier).first()
+        if user:
+            user_profile = UserProfile.objects.filter(user=user).first()
+
 
     # If not found by ID, try username
     if not user_profile:
@@ -49,10 +53,12 @@ def get_user_profile(request, identifier=None):
 
     if user_profile:
         if request.method == 'GET':
-            profile_data = {
-                'username': user_profile.user.username,
-                'profile_pic_url': user_profile.get_profile_pic_url(),
-            }
+            serializer = UserProfileSerializer(user_profile)
+            profile_data = serializer.data
+            profile_data['profile_pic_url'] = user_profile.get_profile_pic_url()
+            profile_data['cover_pic_url'] = user_profile.get_cover_pic_url()
+            profile_data['user_type_display_name'] = user_profile.get_user_type_display_name()
+            profile_data['system_role_display_name'] = user_profile.get_system_role_display_name()
             return Response(profile_data)
     else:
         return Response({"error": "Profile not found"}, status=404)

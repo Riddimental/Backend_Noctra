@@ -25,14 +25,20 @@ class Feed(models.Model):
 
 
 class UserProfile(models.Model):
-    ROLE_CHOICES = [
+    USER_TYPE_CHOICES = [
         ('customer', 'Customer'),
-        ('club_admin', 'Club Admin'),
         ('club_owner', 'Club Owner'),
+        ('club_admin', 'Club Admin'),
+    ]
+
+    SYSTEM_ROLE_CHOICES = [
+        ('regular', 'Regular'),
         ('super_admin', 'Super Admin'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='customer')
+    system_role = models.CharField(max_length=20, choices=SYSTEM_ROLE_CHOICES, default='regular')
     profile_pic = models.ImageField(
         upload_to=upload_profile_pic, null=True, blank=True,
         default='images/profile_pictures/default_profile.jpg'
@@ -47,7 +53,6 @@ class UserProfile(models.Model):
     bio = models.TextField(max_length=255, null=True, blank=True)
     publicProfile = models.BooleanField(default=True)
     anonymous = models.BooleanField(default=False)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='customer')
     feed = models.OneToOneField(Feed, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -71,11 +76,14 @@ class UserProfile(models.Model):
     def get_cover_pic_url(self):
         return self.cover_pic.url if self.cover_pic else '../media/images/cover_pictures/default_cover.jpg'
 
-    def get_role_display_name(self):
-        return dict(self._meta.get_field('role').choices).get(self.role)
+    def get_user_type_display_name(self):
+        return dict(self._meta.get_field('user_type').choices).get(self.user_type)
+
+    def get_system_role_display_name(self):
+        return dict(self._meta.get_field('system_role').choices).get(self.system_role)
 
     def __str__(self):
-        return f"{self.user.username} ({self.get_role_display_name()})"
+        return f"{self.user.username} ({self.get_user_type_display_name()})"
 
 
 class Club(models.Model):
