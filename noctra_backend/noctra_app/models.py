@@ -8,11 +8,16 @@ import os
 
 # Upload paths
 def upload_profile_pic(instance, filename):
-    # name the file using f"{uuid.uuid4().hex}.{ext}"
     return f'images/profile_pictures/{instance.user.username}/{uuid.uuid4().hex}.{filename.split(".")[-1]}'
+
+def upload_club_profile_pic(instance, filename):
+    return f'images/club_profile_pictures/{instance.name}/{uuid.uuid4().hex}.{filename.split(".")[-1]}'
 
 def upload_cover_pic(instance, filename):
     return f'images/cover_pictures/{instance.user.username}/{uuid.uuid4().hex}.{filename.split(".")[-1]}'
+
+def upload_club_cover_pic(instance, filename):
+    return f'images/club_cover_pictures/{instance.club.name}/{uuid.uuid4().hex}.{filename.split(".")[-1]}'
 
 
 class Feed(models.Model):
@@ -85,14 +90,17 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username} ({self.get_user_type_display_name()})"
 
-
 class Club(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, unique=True)
-    main_location = models.CharField(max_length=255)
+    company_main_location = models.CharField(max_length=255)
     contact_number = models.CharField(max_length=20)
     description = models.TextField(null=True, blank=True)
-    image_url = models.URLField(null=True, blank=True)
+    profile_pic = models.ImageField(
+        upload_to=upload_club_profile_pic, null=True, blank=True,
+        default='images/profile_pictures/default_profile.jpg'
+    )
+    admins = models.ManyToManyField(User, related_name='admin_clubs', blank=True)
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_clubs')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -101,24 +109,15 @@ class Club(models.Model):
         return self.name
 
 
-class ClubAdmin(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    club = models.ManyToManyField(Club, related_name='admins')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.user.username}"
-
-
 class ClubProfile(models.Model):
-    club = models.OneToOneField(Club, on_delete=models.CASCADE, related_name='profile')
-    profile_pic = models.URLField(null=True, blank=True)
+    club = models.OneToOneField(Club, on_delete=models.CASCADE, related_name='club_profile')
+    cover_pic = models.ImageField(
+        upload_to=upload_club_cover_pic, null=True, blank=True,
+        default='images/cover_pictures/default_cover.jpg'
+    )
     description = models.TextField(null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)
     feed = models.OneToOneField(Feed, on_delete=models.CASCADE, null=True, blank=True)
-    managed_by = models.ManyToManyField(ClubAdmin, related_name='managed_clubs')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

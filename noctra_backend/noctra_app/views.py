@@ -59,7 +59,13 @@ def get_user_profile(request, identifier=None):
             profile_data['cover_pic_url'] = user_profile.get_cover_pic_url()
             profile_data['user_type_display_name'] = user_profile.get_user_type_display_name()
             profile_data['system_role_display_name'] = user_profile.get_system_role_display_name()
-            return Response(profile_data)
+            basic_data = {
+                'id': user_profile.id,
+                'username': user_profile.username,
+                'user_type': user_profile.user_type,
+                'profile_pic_url': user_profile.get_profile_pic_url(),
+                }
+            return Response(basic_data)
     else:
         return Response({"error": "Profile not found"}, status=404)
 
@@ -78,6 +84,17 @@ def register(request):
                 'username': user.username
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_club(request):
+    serializer = ClubSerializer(data=request.data)
+    if serializer.is_valid():
+        club = serializer.save(created_by=request.user)
+        club.admins.add(request.user)
+        return Response(ClubSerializer(club).data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ClubViewSet(viewsets.ModelViewSet):
     queryset = Club.objects.all()
@@ -90,12 +107,6 @@ class ClubProfileViewSet(viewsets.ModelViewSet):
     serializer_class = ClubProfileSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
-
-class ClubAdminViewSet(viewsets.ModelViewSet):
-    queryset = ClubAdmin.objects.all()
-    serializer_class = ClubAdminSerializer
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAdminUser]  # Only admins can access
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()

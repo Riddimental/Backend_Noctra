@@ -5,7 +5,6 @@ from .models import *
 admin.site.register(UserProfile)
 admin.site.register(Club)
 admin.site.register(ClubProfile)
-admin.site.register(ClubAdmin)
 admin.site.register(Event)
 admin.site.register(Feed)
 admin.site.register(Post)

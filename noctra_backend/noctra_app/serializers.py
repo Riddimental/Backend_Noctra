@@ -51,11 +51,6 @@ class ClubProfileSerializer(serializers.ModelSerializer):
         model = ClubProfile
         fields = '__all__'
 
-class ClubAdminSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ClubAdmin
-        fields = '__all__'
-
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
